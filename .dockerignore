@@ -1,0 +1,33 @@
+# Keep the API build context small; never ship secrets or runtime data.
+.git
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Runtime/PII data, models, logs — never baked into the image
+data/uploads
+data/*.db
+data/*.db-journal
+data/_*
+logs
+*.log
+
+# Node / frontend / blockchain (built by their own images)
+frontend
+blockchain
+models
+
+# Scratch
+tmp_*
+uvicorn.log

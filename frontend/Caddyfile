@@ -1,0 +1,9 @@
+# Fallback config baked into the image for standalone runs.
+# docker-compose.yml mounts the canonical ./Caddyfile (repo root) over this
+# file, adding the /api, /health and /pipeline reverse proxy.
+:80 {
+	root * /srv/dist
+	encode gzip
+	try_files {path} /index.html
+	file_server
+}

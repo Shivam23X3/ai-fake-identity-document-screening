@@ -1,0 +1,6 @@
+node_modules
+artifacts
+cache
+deployed.json
+abi
+hardhat_node.log

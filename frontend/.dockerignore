@@ -1,0 +1,9 @@
+node_modules
+dist
+*.log
+# Local-only env files. .env.production is intentional (no secrets — just
+# VITE_API_BASE="") and must ship so `npm run build` is reproducible.
+.env
+.env.local
+.env.*.local
+!.env.example

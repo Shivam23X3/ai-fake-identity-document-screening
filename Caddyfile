@@ -1,0 +1,38 @@
+# ===========================================================================
+# Public entrypoint for the SIH demo.
+# {$DOMAIN} comes from the server-side .env next to docker-compose.yml:
+#   - DNS name (e.g. demo.example.com) → automatic Let's Encrypt HTTPS
+#   - raw IP (e.g. 203.0.113.10)       → plain HTTP on port 80 (demo only)
+#   - unset                            → demo.localhost (local HTTPS, testing)
+# Serves ONLY the built frontend + the API routes below. Nothing else
+# (uploads, logs, models, chain RPC) is reachable from here.
+# ===========================================================================
+{$DOMAIN:demo.localhost} {
+	root * /srv/dist
+	encode gzip
+
+	# --- API reverse proxy (same-origin → no CORS needed) ---
+	@api path /api/* /health /pipeline/*
+	handle @api {
+		reverse_proxy api:8000
+	}
+
+	# --- SPA static frontend ---
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+
+	# --- Security headers (mirror the API's SecurityHeadersMiddleware) ---
+	header {
+		Strict-Transport-Security "max-age=15552000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	log {
+		output stdout
+	}
+}

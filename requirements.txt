@@ -15,6 +15,9 @@ cryptography>=42,<51              # Fernet encryption at rest (report_json)
 # Database (SQLite dev / Postgres-ready)
 sqlalchemy>=2.0,<3.0
 
+# Blockchain audit anchor (Step 9): web3.py client for AuditAnchor
+web3>=6,<8
+
 # Image preprocessing (headless build avoids GUI deps; other wheels may pull
 # the non-headless opencv-python — keep only the headless one installed)
 opencv-python-headless>=4.8,<5

@@ -73,7 +73,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(`${API_BASE}${path}`, { ...init, headers })
   } catch {
-    throw new ApiError('Cannot reach the backend. Is the FastAPI server running on port 8000?', 0)
+    throw new ApiError(
+      API_BASE
+        ? 'Cannot reach the backend at ' + API_BASE + '. Check VITE_API_BASE / API server.'
+        : 'Cannot reach the API. Is the backend server running?',
+      0,
+    )
   }
 
   let body: Record<string, unknown> | null = null

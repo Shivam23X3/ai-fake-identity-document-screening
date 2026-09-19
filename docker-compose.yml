@@ -1,0 +1,127 @@
+# ===========================================================================
+# SIH demo deployment: caddy (public) → api → hardhat (internal only)
+#
+#   browser ──HTTPS──▶ caddy ──static──▶ built frontend
+#                        │
+#                        └─ /api, /health, /pipeline ──▶ api (FastAPI)
+#                                                          └─▶ hardhat:8545
+#
+# REQUIRED server-side .env NEXT TO THIS FILE (never committed — see
+# DEPLOY.md): APP_SECRET_KEY, APP_ENCRYPTION_KEY, APP_BOOTSTRAP_ADMIN_PASSWORD,
+# optionally DOMAIN / APP_CORS_ORIGINS.
+#
+# Exposure rules enforced here:
+#   - hardhat publishes NO host ports (internal network only)
+#   - api publishes NO host ports (reached only through caddy)
+#   - uploads / SQLite / logs / models live in private named volumes
+#   - secrets enter via environment only; nothing is baked into images
+# ===========================================================================
+name: screening-demo
+
+services:
+  # --- Public entrypoint: static frontend + API reverse proxy -------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: screening-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # demo.localhost → local HTTPS; a DNS name → Let's Encrypt; a raw IP → HTTP:80
+      - DOMAIN=${DOMAIN:-demo.localhost}
+    volumes:
+      # Canonical config lives at the repo root (editable without rebuild)
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - edge
+      - internal
+
+  # --- FastAPI backend (internal only) ------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: screening-api
+    restart: unless-stopped
+    expose:
+      - "8000"            # reachable only inside the compose network
+    environment:
+      - APP_ENV=prod
+      - APP_MOCK_MODE=true            # demo: mock registry only, never real lookups
+      - APP_DB_URL=sqlite:////srv/app/data/app.db
+      - APP_SECRET_KEY=${APP_SECRET_KEY:?set APP_SECRET_KEY in the server-side .env}
+      - APP_ENCRYPTION_KEY=${APP_ENCRYPTION_KEY:?set APP_ENCRYPTION_KEY in the server-side .env}
+      - APP_BOOTSTRAP_ADMIN_USERNAME=${APP_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      - APP_BOOTSTRAP_ADMIN_PASSWORD=${APP_BOOTSTRAP_ADMIN_PASSWORD:?set APP_BOOTSTRAP_ADMIN_PASSWORD in the server-side .env}
+      - APP_CORS_ORIGINS=${APP_CORS_ORIGINS:-https://demo.localhost,http://demo.localhost}
+      - APP_CHAIN_RPC_URL=http://hardhat:8545
+      - APP_LEDGER_BACKEND=${APP_LEDGER_BACKEND:-auto}
+    volumes:
+      # Private runtime state (SQLite + uploads + baked demo fixtures).
+      # NOT reachable from caddy or the internet.
+      - api_data:/srv/app/data
+      - api_logs:/srv/app/logs
+      # AuditAnchor deployment artifacts written by chain-deploy (hashes only)
+      - chain_artifacts:/srv/app/blockchain
+    depends_on:
+      hardhat:
+        condition: service_started
+      chain-deploy:
+        condition: service_completed_successfully
+    networks:
+      - internal
+
+  # --- Local EVM chain (internal only — NO published ports) ----------------
+  hardhat:
+    build: ./blockchain
+    image: screening-hardhat
+    restart: unless-stopped
+    command: ["npx", "hardhat", "node", "--hostname", "0.0.0.0", "--port", "8545"]
+    expose:
+      - "8545"            # internal only; never exposed to the internet
+    networks:
+      - internal
+
+  # --- One-shot contract deployment (AuditAnchor → hardhat) ----------------
+  chain-deploy:
+    build: ./blockchain
+    image: screening-hardhat
+    restart: "no"
+    command:
+      - sh
+      - -c
+      - |
+        npx hardhat compile &&
+        npx hardhat run scripts/deploy.js --network localhost &&
+        mkdir -p /out/abi &&
+        cp deployed.json /out/deployed.json &&
+        cp abi/AuditAnchor.json /out/abi/AuditAnchor.json &&
+        echo "AuditAnchor artifacts exported to the shared chain_artifacts volume"
+    environment:
+      # deploy.js targets the in-compose node, not 127.0.0.1
+      - CHAIN_RPC_URL=http://hardhat:8545
+    volumes:
+      - chain_artifacts:/out
+    depends_on:
+      - hardhat
+    networks:
+      - internal
+
+networks:
+  edge:        # caddy ↔ internet
+  internal:    # api ↔ hardhat ↔ caddy proxying (no host access needed)
+
+volumes:
+  api_data:          # SQLite DB + uploads (encrypted report_json) — private
+  api_logs:          # application logs — private
+  chain_artifacts:   # deployed.json + abi/AuditAnchor.json (hashes only)
+  caddy_data:        # TLS certificates
+  caddy_config:

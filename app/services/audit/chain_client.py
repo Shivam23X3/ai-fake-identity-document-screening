@@ -171,7 +171,7 @@ class AuditAnchorClient:
                 # Honest idempotency: same run+hash already on chain.
                 try:
                     on_chain = self._contract.functions.getAnchor(
-                        int(run_id[:8], 16), _to_bytes32(report_hash)
+                        _numeric_run_id(run_id), _to_bytes32(report_hash)
                     ).call()
                     return AnchorResult(
                         status="anchored",
@@ -202,7 +202,7 @@ class AuditAnchorClient:
     ) -> AnchorResult:
         w3 = self._w3
         contract = self._contract
-        numeric_id = int(run_id[:8], 16)  # first 32 bits of the run id
+        numeric_id = _numeric_run_id(run_id)  # contract key for this run
         report_b32 = _to_bytes32(report_hash)
         reviewer_b32 = _to_bytes32(reviewer_decision_hash or report_hash)
         linkage = _linkage_code_hash()
@@ -248,7 +248,7 @@ class AuditAnchorClient:
         if not self._connect():
             return {"verified": False, "reason": "chain_unavailable"}
         try:
-            numeric_id = int(run_id[:8], 16)
+            numeric_id = _numeric_run_id(run_id)
             b32 = _to_bytes32(report_hash)
             anchor = self._contract.functions.getAnchor(numeric_id, b32).call()
             stored_hash, _, ts, linkage = anchor
@@ -263,6 +263,22 @@ class AuditAnchorClient:
             }
         except Exception as exc:  # noqa: BLE001
             return {"verified": False, "reason": f"{type(exc).__name__}: {exc}"[:200]}
+
+
+def _numeric_run_id(run_id: str) -> int:
+    """Derive the contract's uint256 key from a run id.
+
+    Screening run ids are uuid4 hex, so the first 8 chars parse as hex.
+    Demo run ids (``demo_case1_valid_ab12cd34``) do NOT, and int(…, 16)
+    would raise ValueError — anchor every screening the same way by
+    falling back to keccak256(run_id) when the prefix is not hex.
+    """
+    try:
+        return int(run_id[:8], 16)
+    except ValueError:
+        from web3 import Web3
+
+        return int.from_bytes(Web3.keccak(text=run_id)[:4], "big")
 
 
 def _to_bytes32(hex_hash: str) -> Any:
