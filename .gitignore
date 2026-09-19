@@ -1,0 +1,96 @@
+# =====================================================================
+#  NEVER COMMIT: secrets, credentials, real identity documents,
+#  biometric data or personal information. Synthetic SPECIMEN data only.
+# =====================================================================
+
+# --- Environment / secrets -------------------------------------------
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.der
+id_rsa*
+id_dsa*
+id_ecdsa*
+id_ed25519*
+*service-account*.json
+*.kdbx
+.gitleaks.toml.bak
+
+# --- Databases (PII-bearing: OCR fields, MRZ, names) ------------------
+data/*.db
+data/*.db-journal
+data/*.sqlite
+*.db-wal
+*.shm
+
+# --- Uploads (user document images — NEVER commit) --------------------
+data/uploads/*
+!data/uploads/.gitkeep
+
+# --- Logs --------------------------------------------------------------
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Browser smoke-test profile (contains disk cache, cookies jars) ----
+data/_smoke_chrome_profile/
+
+# --- Temp / scratch files ----------------------------------------------
+tmp_*
+data/_*
+preprocessed.png
+*.tmp
+*.bak
+*.swp
+*.orig
+.DS_Store
+Thumbs.db
+
+# --- Python ------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# --- ML model weights (regenerable: python scripts/get_face_models.py) --
+models/
+
+# --- Node / frontend ---------------------------------------------------
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+
+# --- Blockchain build artifacts (regenerable via `npm run deploy`) -----
+blockchain/artifacts/
+blockchain/cache/
+blockchain/deployments/
+blockchain/deployed.json
+blockchain/abi/
+blockchain/hardhat_node.log
+
+# --- Editor / IDE ------------------------------------------------------
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln

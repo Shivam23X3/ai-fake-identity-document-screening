@@ -1,0 +1,30 @@
+# Core API
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+
+# Configuration
+python-dotenv>=1.0
+
+# Security (Step 11)
+PyJWT>=2.8,<3                     # JWT access tokens (HS256)
+passlib[argon2]>=1.7.4,<2         # Argon2id password hashing
+slowapi>=0.1.9,<0.2               # API rate limiting
+cryptography>=42,<51              # Fernet encryption at rest (report_json)
+
+# Database (SQLite dev / Postgres-ready)
+sqlalchemy>=2.0,<3.0
+
+# Image preprocessing (headless build avoids GUI deps; other wheels may pull
+# the non-headless opencv-python — keep only the headless one installed)
+opencv-python-headless>=4.8,<5
+numpy>=1.26,<3
+Pillow>=10,<12
+
+# OCR engines
+rapidocr-onnxruntime>=1.3.24,<2   # default: no system deps, models bundled
+pytesseract>=0.3.10,<0.4          # optional: requires the Tesseract binary
+
+# Testing
+pytest>=8.0
+httpx>=0.27

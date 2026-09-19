@@ -1,0 +1,16 @@
+{
+  "name": "screening-audit-chain",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local EVM audit-anchor chain for the document screening system (SIH 2026)",
+  "scripts": {
+    "node": "hardhat node",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network localhost",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.0"
+  }
+}
