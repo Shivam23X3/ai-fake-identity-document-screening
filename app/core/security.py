@@ -83,7 +83,12 @@ def check_password_strength(password: str) -> str | None:
 # ---------------------------------------------------------------------------
 # JWT access tokens + revocation denylist
 # ---------------------------------------------------------------------------
-_bearer = HTTPBearer(auto_error=False)
+# Dev/test fallback when APP_SECRET_KEY is unset. Deliberately NOT a valid
+# stand-in for a real secret: it is a CONSTANT (any dev deployment shares it),
+# so prod requires a real APP_SECRET_KEY (config guardrail). 48 bytes keeps
+# PyJWT's RFC 7518 minimum-length warning quiet while making the fallback's
+# nature obvious by name.
+_DEV_FALLBACK_SECRET = "dev-only-insecure-secret-do-not-use-in-prod!"  # noqa: S105
 
 # In-process revocation set (jti). Single-node: this is sufficient; logout
 # and password change revoke live tokens immediately. Multi-node would swap
@@ -124,14 +129,14 @@ def create_access_token(user: User, *, force_brief_ttl: bool = False) -> str:
         "aud": settings.jwt_audience,
         "jti": uuid.uuid4().hex,
     }
-    secret = settings.secret_key or "dev-only-insecure-secret"  # dev fallback
+    secret = settings.secret_key or _DEV_FALLBACK_SECRET
     return pyjwt.encode(payload, secret, algorithm="HS256")
 
 
 def decode_access_token(token: str) -> dict:
     """Verify signature + claims. Raises AppError(401) — never leaks the token."""
     settings = get_settings()
-    secret = settings.secret_key or "dev-only-insecure-secret"
+    secret = settings.secret_key or _DEV_FALLBACK_SECRET
     try:
         payload = pyjwt.decode(
             token,
@@ -153,7 +158,7 @@ def decode_access_token(token: str) -> dict:
 def revoke_token(token: str) -> None:
     """Best-effort revocation (logout): denylist the token's jti until exp."""
     settings = get_settings()
-    secret = settings.secret_key or "dev-only-insecure-secret"
+    secret = settings.secret_key or _DEV_FALLBACK_SECRET
     try:
         payload = pyjwt.decode(
             token, secret, algorithms=["HS256"],

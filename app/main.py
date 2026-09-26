@@ -22,6 +22,7 @@ from app.api.routes_audit import router as audit_router
 from app.api.routes_auth import router as auth_router
 from app.api.routes_investigation import router as investigation_router
 from app.api.routes_demo import router as demo_router
+from app.api.routes_review import router as review_router
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
     app.include_router(audit_router)
     app.include_router(investigation_router)
     app.include_router(demo_router)
+    app.include_router(review_router)
 
     # --- Uniform error envelope ---
     register_exception_handlers(app)

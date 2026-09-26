@@ -366,3 +366,51 @@ export interface AuditLogResponse {
   note: string
   disclaimer: string
 }
+
+/** ----------------------------------------------------------------------
+ *  Step 15 — human review workflow (the closing half of HITL)
+ *  ---------------------------------------------------------------------- */
+export type ReviewDecision = 'cleared' | 'flagged' | 'escalated' | 'inconclusive'
+
+export interface ReviewState {
+  decision: ReviewDecision | null
+  notes: string | null
+  reviewer_id: number | null
+  decided_at: string | null
+  pending: boolean
+}
+
+export interface ReviewStateResponse {
+  success: boolean
+  run_id: string
+  human_review_required: boolean
+  review: ReviewState
+  disclaimer: string
+}
+
+export interface ReviewPendingItem {
+  run_id: string
+  status: string
+  risk_score: number | null
+  risk_band: RiskBand
+  human_review_required: boolean
+  doc_type_detected: string | null
+  created_at: string | null
+}
+
+export interface ReviewPendingResponse {
+  success: boolean
+  items: ReviewPendingItem[]
+  count: number
+  disclaimer: string
+}
+
+export interface ReviewDecisionResponse {
+  success: boolean
+  run_id: string
+  decision: ReviewDecision
+  decided_at: string
+  reviewer_id: number
+  audit_event_id: number
+  disclaimer: string
+}

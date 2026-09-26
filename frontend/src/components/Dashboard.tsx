@@ -23,8 +23,9 @@ import {
 import { BlockchainPanel } from './BlockchainPanel'
 import { Investigation } from './Investigation'
 import { DemoMode } from './DemoMode'
+import { ReviewPanel } from './ReviewPanel'
 
-type View = 'new-screening' | 'detail' | 'investigation' | 'demo'
+type View = 'new-screening' | 'detail' | 'investigation' | 'review' | 'demo'
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrator',
@@ -169,6 +170,12 @@ export function Dashboard({
           Investigation & Intelligence
         </button>
         <button
+          className={`tab ${view === 'review' ? 'tab-active' : ''}`}
+          onClick={() => setView('review')}
+        >
+          Human Review
+        </button>
+        <button
           className={`tab ${view === 'demo' ? 'tab-active' : ''}`}
           onClick={() => setView('demo')}
         >
@@ -231,6 +238,8 @@ export function Dashboard({
         )}
 
         {view === 'investigation' && <Investigation />}
+
+        {view === 'review' && <ReviewPanel onOpenDetail={openDetail} />}
 
         {view === 'demo' && <DemoMode onOpenDetail={openDetail} />}
 

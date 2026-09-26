@@ -59,6 +59,10 @@ class Screening(Base):
     # pre-existing DBs; legacy rows read NULL → falsy → plaintext, which is
     # exactly right for rows written before encryption was enabled.
     report_encrypted: Mapped[bool | None] = mapped_column(Boolean, nullable=True, default=False)
+    # PDF uploads: total page count of the source document (None = not a PDF).
+    # The pipeline screens page 1 only; >1 pages ⇒ disclosed in the report and
+    # contributes risk points (incomplete document coverage).
+    pdf_pages: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

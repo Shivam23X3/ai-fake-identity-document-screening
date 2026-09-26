@@ -4,6 +4,7 @@
  * backend produced; when a module is a placeholder the panel shows the
  * "module pending" state — no fake AI results anywhere.
  */
+import { api } from '../api'
 import type { AnalyzeResponse, ScreeningResult, StageResult } from '../types'
 import { DOC_TYPE_LABELS, bandInfo, formatConfidence } from '../helpers'
 import {
@@ -62,7 +63,8 @@ export function DocumentPreviewPanel({
   )
 }
 function apiFileUrl(runId: string): string {
-  return `/api/screening/${runId}/file`
+  // Respect VITE_API_BASE (split-origin deploys); same-origin is the default.
+  return api.fileUrl(runId)
 }
 function formatBytesLocal(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`

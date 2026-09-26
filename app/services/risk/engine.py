@@ -565,6 +565,22 @@ def _metadata_signal(tampering: Any, ledger: _Ledger) -> None:
     ledger.points += points
 
 
+def _coverage_signal(pdf_pages: Any, ledger: _Ledger) -> None:
+    """Incomplete-document coverage: a PDF with more than one page was only
+    partially screened (page 1), so the verdict cannot speak for the rest."""
+    try:
+        pages = int(pdf_pages) if pdf_pages is not None else 0
+    except (TypeError, ValueError):
+        return
+    if pages > 1:
+        ledger.add(
+            "stage_error",  # reuse the degraded-pipeline weight
+            f"PDF has {pages} pages but only page 1 was screened — coverage incomplete",
+            signal="Partial document coverage (multi-page PDF)",
+            details=f"pages={pages}, screened=1",
+        )
+
+
 def _stage_outcomes_signal(stage_results: list[dict[str, Any]] | None, ledger: _Ledger) -> None:
     entries: list[str] = []
     for r in stage_results or []:
@@ -689,6 +705,7 @@ def assess_risk(
     _suspicious_patterns_signal(ocr_rows, ledger)
     _metadata_signal(stage_outputs.get("tampering"), ledger)
     _stage_outcomes_signal(stage_results, ledger)
+    _coverage_signal(stage_outputs.get("pdf_pages"), ledger)
 
     # Step-14 compound escalation: the impostor pattern. A face NO_MATCH on a
     # document whose validation is fully clean and whose tampering analysis

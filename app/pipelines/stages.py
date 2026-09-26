@@ -154,6 +154,7 @@ class RiskAssessmentStage:
                 "face_verification": ctx.get("face_verification"),
                 "doc_type_hint": ctx.get("doc_type_hint"),
                 "doc_type_detected": ctx.get("doc_type_detected"),
+                "pdf_pages": ctx.get("pdf_pages"),
             },
             stage_results=ctx.get("stage_results"),
         )

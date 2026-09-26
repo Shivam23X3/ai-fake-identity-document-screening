@@ -161,8 +161,9 @@ fake-id-screening/
      │        cross-field, MOCK registry lookup                 │        │          │
      │  4 Tampering ───── ELA, noise-inconsistency, copy-move, │        │          │
      │        metadata forensics  (probabilistic signals only)  │        │          │
-     │  5 Face ────────── InsightFace embeddings, portrait-vs- │        │          │
-     │        photo cosine similarity, liveness heuristics      │        │          │
+     │  5 Face ────────── SFace embeddings (YuNet detection),    │        │          │
+     │        1:1 portrait-vs-presented cosine similarity;       │        │          │
+     │        passive presentation cues (NOT liveness proof)     │        │          │
      │  6 Risk ────────── weighted fusion → score, band,       │        │          │
      │        human_review_required routing                     │        │          │
      └──────────────────────────────────────────────────────────┘        │          │
@@ -181,7 +182,7 @@ fake-id-screening/
 
 1. **Upload** — operator authenticates (JWT), submits document image/PDF via React → `POST /api/v1/screen`. Backend validates type/size, stores under `data/uploads/<run_id>/original.<ext>`, computes `sha256(file)` immediately (integrity anchor used later by the audit trail).
 2. **Pipeline run** — orchestrator executes stages 1→6 in order. Each stage reads required keys from `PipelineContext`, writes JSON-serializable outputs + a `StageResult{status, confidence, data, human_review_required}`. Crash in any stage → that stage marked `error`, run continues (policy: `skip`). Missing inputs → stage marked `skipped`.
-3. **Risk fusion** — the risk stage combines: OCR field confidences, validation failures, tampering signals, face similarity, liveness cues → `risk_score ∈ [0,1]`, band `low|medium|high`, and routing: `high ⇒ human_review_required = true` (also forced by any stage error / missing confidence).
+3. **Risk fusion** — the risk stage combines: OCR field confidences, validation failures, tampering signals, face similarity, presentation-cue flags → `risk_score ∈ [0,100]`, band `low|medium|high|critical`, and routing: elevated risk ⇒ `human_review_required = true` (also forced by any stage error / missing confidence / ALWAYS, by policy).
 4. **Screening result** — API persists a `screenings` row (status `pending_review`), returns the full per-stage report to the UI with disclaimers. **No automatic accept/reject ever.**
 5. **Human review** — reviewer opens the case in the review queue, sees stage cards + evidence, records decision (`cleared | flagged | escalated`) + notes → `screenings.review_status/decision/reviewer_id` updated.
 6. **Audit anchoring** — `audit_service` (BackgroundTask) writes an `audit_events` row containing `sha256(canonical_report_json)`, then calls the Hardhat-deployed `AuditAnchor` contract → stores `(runId, reportHash, reviewerDecisionHash, timestamp)`. Row updated with `tx_hash`, `block_number`. Full report stays in the DB; the chain holds only hashes (tamper-evidence, not storage).
@@ -282,7 +283,7 @@ preprocess.provides: preprocessed_image_path, quality_metrics, mrz_region_hint
 ocr.provides:        ocr_fields{field,value,confidence}, mrz_raw, doc_type_detected
 validation.provides: validation{checks[], failures[], registry_hit(MOCK)}
 tampering.provides:  tampering{signals[], score, explanation}
-face.provides:       face_verification{similarity, threshold, liveness_cues}
+face.provides:       face_verification{similarity, threshold, presentation_cues}
 risk.provides:       risk{score, band, contributions[], human_review_required}
 ```
 

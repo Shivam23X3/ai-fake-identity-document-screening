@@ -135,13 +135,32 @@ async def save_upload(filename: str, chunk_iter) -> dict:
             status_code=415,
         )
 
+    # --- PDF handling ------------------------------------------------------
+    # The CV pipeline works on images, so a PDF is rasterized (page 1) and
+    # the pipeline analyzes the raster. The original PDF stays on disk as
+    # the audit artifact; ``pdf_pages`` lets the report disclose that only
+    # page 1 was screened.
+    pdf_pages: int | None = None
+    analyze_path = saved_path
+    if detected == "pdf":
+        from app.services.pdf_service import rasterize_pdf
+
+        raster = rasterize_pdf(saved_path)
+        if raster is not None:
+            analyze_path = raster["raster_path"]
+            pdf_pages = raster["pages"]
+            sha256 = hashlib.sha256(analyze_path.read_bytes())
+        # raster None ⇒ keep the PDF as analyze_path: every downstream stage
+        # will report honestly that it could not process it.
+
     return {
         "run_id": run_id,
-        "path": saved_path,
+        "path": analyze_path,
         "size": size,
         "sha256": sha256.hexdigest(),
         "detected_type": detected,
         "extension": ext,
+        "pdf_pages": pdf_pages,
     }
 
 
@@ -183,6 +202,7 @@ def create_screening_row(
     doc_type_hint: str,
     operator_id: int | None,
     probe_image_path: str | None = None,
+    pdf_pages: int | None = None,
 ) -> Screening:
     from app.services.crypto import encrypt_text, encryption_enabled
 
@@ -199,6 +219,7 @@ def create_screening_row(
         report_json=encrypt_text(initial) if encryption_enabled() else initial,
         report_encrypted=encryption_enabled(),
     )
+    row.pdf_pages = pdf_pages
     session.add(row)
     session.flush()
     return row

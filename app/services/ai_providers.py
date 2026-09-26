@@ -378,13 +378,17 @@ def providers_status() -> dict[str, dict[str, Any]]:
         selected = getattr(settings, _setting_keys[capability])
         registered = sorted(_registry[capability].keys())
         active = get_provider(capability)
+        # Parenthesized correctly: name prefix applies to every capability
+        # (without them, `and` bound tighter than `or` and is_placeholder
+        # was wrong for every non-preprocessing capability).
+        is_placeholder = active.name.startswith("placeholder-") or (
+            capability == "preprocessing" and isinstance(active, PlaceholderPreprocessing)
+        )
         status[capability] = {
             "configured": selected,
             "registered": registered,
             "active": active.name,
-            "is_placeholder": capability == "preprocessing"
-            and isinstance(active, PlaceholderPreprocessing)
-            or active.name.startswith("placeholder-"),
+            "is_placeholder": is_placeholder,
             "interface": _public_types[capability],
         }
     return status

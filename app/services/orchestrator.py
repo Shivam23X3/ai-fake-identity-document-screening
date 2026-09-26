@@ -84,6 +84,7 @@ class Orchestrator:
                 "original_path": screening.original_path,
                 "probe_image_path": screening.probe_image_path,
                 "doc_type_hint": screening.doc_type_hint or "unknown",
+                "pdf_pages": getattr(screening, "pdf_pages", None),
             }
         )
 
@@ -118,6 +119,8 @@ class Orchestrator:
             "doc_type_detected": ctx.get("doc_type_detected")
             or ocr_payload.get("doc_type_detected"),
             "probe_image_path": screening.probe_image_path,
+            "pdf_pages": getattr(screening, "pdf_pages", None),
+            "pdf_pages_screened": (1 if getattr(screening, "pdf_pages", None) else None),
         }
 
         # --- fused verdict ---------------------------------------------------
@@ -233,9 +236,18 @@ class Orchestrator:
 
                 session = get_session_factory()()
             try:
+                # A screening accumulates MULTIPLE audit events once Step-10
+                # logging adds 'audit_logged' rows: pick the freshest
+                # 'screening_completed' deterministically instead of
+                # scalar_one_or_none() (MultipleResultsFound). The hash of
+                # that event is the one committed at analyze time, so it is
+                # also the correct one to re-verify.
                 event = session.execute(
-                    select(AuditEvent).where(AuditEvent.screening_id == screening.id)
-                ).scalar_one_or_none()
+                    select(AuditEvent)
+                    .where(AuditEvent.screening_id == screening.id)
+                    .where(AuditEvent.event_type == "screening_completed")
+                    .order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc())
+                ).scalars().first()
                 if event is None:
                     event = record_screening_completed(
                         session,

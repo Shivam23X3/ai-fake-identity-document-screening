@@ -15,6 +15,9 @@ import type {
   InvestigationSearchResponse,
   InvestigationStats,
   PipelineInfo,
+  ReviewDecisionResponse,
+  ReviewPendingResponse,
+  ReviewStateResponse,
   ScreeningDetail,
   ScreeningResult,
   UploadResponse,
@@ -62,6 +65,14 @@ export class ApiError extends Error {
   }
 }
 
+/** Invoked when the server rejects the token (expired/revoked mid-session). */
+let onUnauthorized: (() => void) | null = null
+
+/** Register a callback fired on any 401 while a token is present. */
+export function setUnauthorizedHandler(fn: (() => void) | null): void {
+  onUnauthorized = fn
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -89,6 +100,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!res.ok || body?.success === false) {
+    // Expired/revoked token mid-session (30-min TTL): drop it and let the
+    // app return to the login screen instead of a stuck half-broken UI.
+    if (res.status === 401 && accessToken && !path.startsWith('/api/auth/login')) {
+      setToken(null)
+      onUnauthorized?.()
+    }
     throw new ApiError(
       (body?.error as string) ?? `Request failed (${res.status})`,
       res.status,
@@ -215,6 +232,22 @@ export const api = {
   /** Step-14: run one scripted demo case through the REAL pipeline. */
   demoRun: (caseId: string) =>
     request<DemoRunResponse>(`/api/demo/run/${caseId}`, { method: 'POST' }),
+
+  /** Step-15: the human-review queue (screenings awaiting a decision). */
+  reviewPending: (limit = 50) =>
+    request<ReviewPendingResponse>(`/api/review/pending?limit=${limit}`),
+
+  /** Step-15: decision state for one screening. */
+  reviewGet: (runId: string) =>
+    request<ReviewStateResponse>(`/api/review/${runId}`),
+
+  /** Step-15: record the human decision (REVIEWER and above). */
+  reviewDecide: (runId: string, decision: string, notes?: string) =>
+    request<ReviewDecisionResponse>(`/api/review/${runId}/decide`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision, notes: notes || null }),
+    }),
 
   fileUrl,
 }

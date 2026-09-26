@@ -28,6 +28,10 @@ Pillow>=10,<12
 rapidocr-onnxruntime>=1.3.24,<2   # default: no system deps, models bundled
 pytesseract>=0.3.10,<0.4          # optional: requires the Tesseract binary
 
+# PDF rasterization (page 1 → JPEG for the CV pipeline; replaces the old
+# behavior where accepted PDFs could not actually be analyzed)
+pymupdf>=1.24,<2
+
 # Testing
 pytest>=8.0
 httpx>=0.27

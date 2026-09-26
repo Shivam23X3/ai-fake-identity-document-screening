@@ -34,13 +34,21 @@ export function Login({
       setToken(res.access_token)
       onLogin(res.user.username, res.user.role, res.must_change_password)
     } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.status === 0
-            ? err.message
-            : 'Invalid username or password' // uniform message, no enumeration
-          : 'Login failed',
-      )
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          // Uniform message for wrong credentials (no enumeration) — mirrors
+          // the backend's generic failure envelope.
+          setError('Invalid username or password')
+        } else if (err.status === 429) {
+          setError('Too many attempts — wait a minute and try again.')
+        } else if (err.status === 0) {
+          setError(err.message) // network: 'Cannot reach the API…'
+        } else {
+          setError(err.message || 'Login failed. Is the backend running?')
+        }
+      } else {
+        setError('Login failed')
+      }
     } finally {
       setBusy(false)
     }

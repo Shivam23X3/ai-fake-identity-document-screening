@@ -88,14 +88,18 @@ async def upload_document(
             _rmtree_quiet(Path(saved["path"]).parent)
             raise
 
+    # Attribution: the JWT-authenticated operator who created this run
+    # (audit trail value — Step 11 added auth, this wires it through).
+    operator = request.state.user
     screening_service.create_screening_row(
         db,
         run_id=saved["run_id"],
         original_path=str(saved["path"]),
         file_sha256=saved["sha256"],
         doc_type_hint=doc_type_hint,
-        operator_id=None,  # auth (JWT) arrives in a later step
+        operator_id=operator.id,
         probe_image_path=str(probe_saved["path"]) if probe_saved else None,
+        pdf_pages=saved.get("pdf_pages"),
     )
 
     return ok(
@@ -108,6 +112,7 @@ async def upload_document(
                 "size_bytes": saved["size"],
                 "sha256": saved["sha256"],
                 "detected_type": saved["detected_type"],
+                **({"pdf_pages": saved["pdf_pages"]} if saved.get("pdf_pages") else {}),
             },
             "probe_image": (
                 {

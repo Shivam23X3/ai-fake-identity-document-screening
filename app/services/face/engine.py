@@ -28,6 +28,7 @@ from app.services.face import detection
 from app.services.face.constants import (
     INCONCLUSIVE_CONFIDENCE,
     MATCH,
+    MAX_PROBE_FACES,
     MIN_FACE_SIDE_PX,
     MIN_IMAGE_SIDE_PX,
     NO_MATCH,
@@ -45,6 +46,69 @@ logger = logging.getLogger(__name__)
 
 class FaceImageError(RuntimeError):
     """Raised when an input image cannot be decoded at all."""
+
+
+def _presentation_cues(probe_bgr: Any, probe_face: detection.FaceBox | None) -> dict[str, Any]:
+    """Passive, image-only presentation cues for the PROBE frame.
+
+    Honest scope: these are heuristic observations that a reviewer can
+    weigh — they are NOT a liveness guarantee and detect no dedicated
+    attack class on their own. Every cue is reported with the evidence a
+    human can re-check. Printed-photo re-presentation (a screen/printer
+    moiré) and depth cues are explicitly OUT of scope; the verdict stays
+    advisory and human review is mandatory regardless.
+    """
+    cues: dict[str, Any] = {
+        "note": (
+            "Passive image-only heuristics — NOT a liveness guarantee. "
+            "A dedicated interactive liveness check (blink/turn challenge) "
+            "is the production upgrade path."
+        ),
+    }
+    if probe_bgr is None or probe_face is None:
+        cues["assessed"] = False
+        return cues
+    h, w = probe_bgr.shape[:2]
+    box = probe_face.box
+    crop = probe_bgr[
+        max(0, box["y"]): min(h, box["y"] + box["h"]),
+        max(0, box["x"]): min(w, box["x"] + box["w"]),
+    ]
+    if crop.size == 0:
+        cues["assessed"] = False
+        return cues
+    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
+
+    # --- screen re-capture: periodic display banding -----------------------
+    # A photograph of a screen often keeps a faint row/col-periodic pattern.
+    # We measure the FFT energy at the first row/col harmonics of the crop.
+    f = np.abs(np.fft.fftshift(np.fft.fft2(gray.astype(np.float32))))
+    cy, cx = np.array(f.shape) // 2
+    row_band = f[cy - 1: cy + 2, :].sum(axis=0)
+    col_band = f[:, cx - 1: cx + 2].sum(axis=1)
+    total = float(f.sum()) or 1.0
+    band_energy = float(row_band[5:20].sum() + col_band[5:20].sum()) / total
+    screen_band_suspect = band_energy > 0.02
+    if screen_band_suspect:
+        cues["screen_band_energy"] = round(band_energy, 4)
+
+    # --- glare: blown-out specular highlights inside the face box ----------
+    blown = float((gray >= 245).mean())
+    glare_suspect = blown > 0.08
+    if glare_suspect:
+        cues["glow_blown_fraction"] = round(blown, 3)
+
+    cues["assessed"] = True
+    cues["suspicions"] = [
+        {"code": "possible_screen_recapture", "note": "Periodic display banding detected in the face crop."}
+    ] if screen_band_suspect else ([])
+    if glare_suspect:
+        cues["suspicions"].append(
+            {"code": "heavy_glare", "note": "Large blown-out highlight area in the face region."}
+        )
+    if not cues.get("suspicions"):
+        cues["suspicions"] = []
+    return cues
 
 
 def _load_bgr(path: str | Any) -> Any:
@@ -203,6 +267,26 @@ def verify(document_image_path: str, probe_image_path: str | None) -> dict[str, 
         result["duration_ms"] = int((time.perf_counter() - started) * 1000)
         return result
 
+    # --- probe frame ambiguity: who is the presenter? -----------------------
+    # Several confident faces in the PROBE frame make any 1:1 verdict
+    # meaningless (an impostor can stand beside the document holder), so the
+    # comparison is refused outright and similarity is never reported. This
+    # check runs BEFORE quality gating: ambiguity alone is disqualifying.
+    all_probe_faces = detection.detect_faces(probe_bgr)
+    if len(all_probe_faces) > MAX_PROBE_FACES:
+        result = _inconclusive(
+            [{
+                "code": "probe_multiple_faces",
+                "note": f"{len(all_probe_faces)} faces detected in the presented image "
+                        "— it is ambiguous who is being verified; capture a "
+                        "single-person frame and retry.",
+            }],
+            doc_face=None,
+            probe_face=None,
+        )
+        result["duration_ms"] = int((time.perf_counter() - started) * 1000)
+        return result
+
     doc_face, doc_reasons = _detect_best(doc_bgr) if doc_bgr is not None else (None, [
         {"code": "image_unreadable", "note": doc_load_error or "Document image could not be decoded."}])
     probe_face, probe_reasons = _detect_best(probe_bgr)
@@ -210,12 +294,15 @@ def verify(document_image_path: str, probe_image_path: str | None) -> dict[str, 
     doc_face_dict = doc_face.to_dict() if doc_face else None
     probe_face_dict = probe_face.to_dict() if probe_face else None
 
+    presentation_cues = _presentation_cues(probe_bgr, probe_face)
+
     if doc_face is None or probe_face is None:
         result = _inconclusive(
             doc_reasons + probe_reasons,
             doc_face=doc_face_dict,
             probe_face=probe_face_dict,
         )
+        result["presentation_cues"] = presentation_cues
         result["duration_ms"] = int((time.perf_counter() - started) * 1000)
         return result
 
@@ -239,6 +326,7 @@ def verify(document_image_path: str, probe_image_path: str | None) -> dict[str, 
             doc_face=doc_face_dict,
             probe_face=probe_face_dict,
         )
+        result["presentation_cues"] = presentation_cues
         result["duration_ms"] = int((time.perf_counter() - started) * 1000)
         return result
 
@@ -263,6 +351,7 @@ def verify(document_image_path: str, probe_image_path: str | None) -> dict[str, 
     result = {
         "face_detected_document": True,
         "face_detected_presented_person": True,
+        "presentation_cues": presentation_cues,
         "similarity_score": round(float(similarity), 4),
         "match_status": status,
         "confidence": round(float(max(0.0, min(1.0, confidence))), 3),

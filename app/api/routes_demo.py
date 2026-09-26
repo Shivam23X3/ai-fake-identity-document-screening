@@ -50,7 +50,7 @@ def demo_run(
         raise AppError(str(exc), status_code=status) from exc
 
     try:
-        result = demo_mode.run_case(db, case_id)
+        result = demo_mode.run_case(db, case_id, operator_id=_user.id)
     except demo_mode.DemoError as exc:
         raise AppError(str(exc), status_code=503) from exc
 

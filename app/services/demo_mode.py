@@ -140,10 +140,11 @@ def _stage_document_probe(case_id: str, case: dict[str, Any]) -> tuple[str, Path
     return run_id, doc_dst, probe_dst, _sha(doc_dst), _sha(probe_dst)
 
 
-def run_case(session, case_id: str) -> dict[str, Any]:
+def run_case(session, case_id: str, *, operator_id: int | None = None) -> dict[str, Any]:
     """Execute one scripted demo case through the REAL pipeline.
 
-    Creates a Screening row, runs the orchestrator (which persists the
+    Creates a Screening row (attributed to ``operator_id`` when the caller
+    is authenticated), runs the orchestrator (which persists the
     consolidated report and writes the audit event), then returns the
     result wrapped in explicit DEMONSTRATION labeling with an honest
     expected-vs-actual checkpoint table.
@@ -163,7 +164,7 @@ def run_case(session, case_id: str) -> dict[str, Any]:
         original_path=str(doc_path),
         file_sha256=doc_sha,
         doc_type_hint="passport",
-        operator_id=None,
+        operator_id=operator_id,
         probe_image_path=str(probe_path),
     )
     # The orchestrator is idempotent for non-"processing" rows; fresh demo

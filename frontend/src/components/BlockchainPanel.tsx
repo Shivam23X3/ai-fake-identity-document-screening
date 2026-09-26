@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from '../api'
-import type { AuditRecord, ScreeningResult } from '../types'
+import type { AuditLogResponse, AuditRecord, ScreeningResult } from '../types'
 import { formatDateTime, shortRunId } from '../helpers'
 import { ErrorBanner, Panel, Spinner } from './ui'
 
@@ -55,20 +55,10 @@ export function BlockchainPanel({ result }: { result: ScreeningResult }) {
     setBusy(true)
     setError(null)
     try {
-      // Verification is the primary ask; the canonical record enriches the view.
-      const v = await api.auditVerify(screeningId)
-      setVerify(v)
-      try {
-        const log = await api.auditLog(screeningId)
-        setRecord(log.audit_record)
-        if (!v.on_ledger && log.logged) {
-          // Logging just happened — re-verify so the badge reflects it.
-          setVerify(await api.auditVerify(screeningId))
-        }
-      } catch (e) {
-        // 409 (not analyzed yet) or genuinely failed — non-fatal for the panel.
-        if (!(e instanceof ApiError) || e.status !== 409) setRecord(null)
-      }
+      // Read-only: verify the recomputed hash against the ledger. Logging is
+      // an explicit user action (button) — never a side effect of viewing.
+      setVerify(await api.auditVerify(screeningId))
+      setError(null)
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Audit verification failed')
     } finally {
@@ -85,7 +75,7 @@ export function BlockchainPanel({ result }: { result: ScreeningResult }) {
     setError(null)
     setNote(null)
     try {
-      const log = await api.auditLog(screeningId)
+      const log: AuditLogResponse = await api.auditLog(screeningId)
       setRecord(log.audit_record)
       setNote(
         log.ledger.ledger_status === 'anchored'

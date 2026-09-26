@@ -173,13 +173,18 @@ class AuditAnchorClient:
                     on_chain = self._contract.functions.getAnchor(
                         _numeric_run_id(run_id), _to_bytes32(report_hash)
                     ).call()
+                    # getAnchor returns (reportHash, reviewerHash, timestamp,
+                    # linkageCode). The timestamp is NOT a block number —
+                    # block_number stays None so audit_events never stores a
+                    # misleading value.
                     return AnchorResult(
                         status="anchored",
                         tx_hash=None,
-                        block_number=int(on_chain[2]),
-            on_chain_hash=_to_bytes32(report_hash).hex(),
-            duration_ms=int((time.perf_counter() - t0) * 1000),
-            note="already anchored (idempotent)",
+                        block_number=None,
+                        on_chain_hash=_to_bytes32(report_hash).hex(),
+                        block_timestamp=int(on_chain[2]),
+                        duration_ms=int((time.perf_counter() - t0) * 1000),
+                        note="already anchored (idempotent)",
                     )
                 except Exception:  # noqa: BLE001
                     pass

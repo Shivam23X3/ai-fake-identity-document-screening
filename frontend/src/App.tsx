@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { api, setToken, type SessionUser } from './api'
+import { api, setToken, setUnauthorizedHandler, type SessionUser } from './api'
 import { Login } from './components/Login'
 import { Dashboard } from './components/Dashboard'
 
@@ -12,6 +12,13 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null)
   const [mustChangePassword, setMustChangePassword] = useState(false)
   const [restoring, setRestoring] = useState(true)
+
+  // Any 401 after login (token expired/revoked mid-session) returns the
+  // operator to the login screen; api.ts has already cleared the token.
+  useEffect(() => {
+    setUnauthorizedHandler(() => setSession(null))
+    return () => setUnauthorizedHandler(null)
+  }, [])
 
   // Restore an existing token: validate it server-side (/me) so a stale or
   // revoked token lands on the login screen instead of silent 401s.

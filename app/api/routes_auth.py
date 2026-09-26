@@ -29,7 +29,14 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
 from app.core.responses import DISCLAIMER, ok
-from app.core.security import PERMISSIONS, CurrentUser, create_access_token, require_admin, revoke_token
+from app.core.security import (
+    PERMISSIONS,
+    ROLES,
+    CurrentUser,
+    create_access_token,
+    require_admin,
+    revoke_token,
+)
 from app.db.base import get_db
 from app.db.models import User
 from app.services import user_service
