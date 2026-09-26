@@ -36,6 +36,9 @@ RUN pip install -r requirements.txt
 # into the image, so the container starts without external downloads.
 # If the download fails the build fails loudly — the face stage would
 # otherwise silently degrade in the demo.
+# The fetch script must be COPY'd before it can run; copying just this one
+# file keeps the models layer cacheable until the script itself changes.
+COPY scripts/get_face_models.py ./scripts/get_face_models.py
 RUN python scripts/get_face_models.py
 
 # Application code (architecture preserved: app/, scripts/, data fixtures)
