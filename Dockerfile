@@ -58,4 +58,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 EXPOSE 8000
 
 # APP_MOCK_MODE / APP_ENV / secrets are injected via environment at runtime.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Port comes from the environment: Render injects PORT automatically; local
+# Docker/Compose (docker-compose.yml exposes 8000, Caddy proxies api:8000)
+# falls back to 8000 when PORT is unset.
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1 --proxy-headers --forwarded-allow-ips='*'"]
