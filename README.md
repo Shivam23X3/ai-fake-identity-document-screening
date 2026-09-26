@@ -72,10 +72,14 @@ Every decision is explainable — the short version:
 | Errors | uniform envelope; internals only in dev; secrets never logged | no info leakage from API or logs |
 
 ```bash
-# Required in prod (the app refuses to boot without them):
-APP_SECRET_KEY=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
-APP_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
-APP_BOOTSTRAP_ADMIN_PASSWORD=...   # first admin; rotate after first login
+### Environment Variables
+
+Create a `.env` file locally and configure the required environment variables:
+
+```env
+APP_SECRET_KEY=<your-secret-key>
+APP_ENCRYPTION_KEY=<your-encryption-key>
+APP_BOOTSTRAP_ADMIN_PASSWORD=<your-admin-password>
 APP_ENV=prod
 ```
 
